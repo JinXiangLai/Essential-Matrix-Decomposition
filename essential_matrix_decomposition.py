@@ -252,14 +252,6 @@ s2*p2 = R21 * s1*p1 + t21
 p2^ * s2 * p2 = p2^ * R21 * s1*p1 + p2^ * t21 = 0
 s1 = -[p2^ * t21] / [p2^ * R21 * p1]
 s2 = [R21 * s1*p1 +t21] / p2
-=========================================
-或者，设世界点P, 投影矩阵T1[I|0], 投影矩阵T2[R21|t21]
-s1*p1 = T1 * P ==> p1^ * T1 * P = 0
-s2*p2 = T2 * P ==> p2^ * T2 * P = 0
-构建最小二乘等式:
-[p1^*R1, t1] * [Px, Py, Pz, 1].T = 0
-[p2^*R2, t2] * [Px, Py, Pz, 1].T = 0
-=========================================
 '''
 print('\n============\n根据多视图几何找正确的R, t:')
 Rts = [(R1, t1), (R2, t2), (R1, -t1), (R2, -t2)]
@@ -304,3 +296,55 @@ print('true rpy: ', R2rpy(R21))
 print('result t: ', Rts[res_id][1])
 print('true t: ', t_21)
 print('true t/result t: ', t_21/Rts[res_id][1])
+
+'''
+使用SVD分解三角化地图点，
+设世界点P, 投影矩阵T1[I|0], 投影矩阵T2[R21|t21]
+对于归一化图像坐标系(与像素坐标系仅差K)
+维度：3X1 = 3X4 * 4X1
+s1*p1 = [R1 | t1] * P
+s1 * p1^ * p1 = p1^ * [R1 | t1] * P = 0 
+同样有
+p2^ * [R2 | t2] * P = 0
+'''
+print('\n============\n使用SVD分解三角化地图点')
+T1 = np.zeros((3, 4), float)
+T1[:, :3] = np.eye(3)
+T2 = np.zeros((3, 4), float)
+T2[:, :3] = R21
+T2[:, 3] = t_21
+for i in range(pp.shape[0]):
+    p1 = Points_c1[i]
+    p2 = Points_c2[i]
+    #A = np.zeros((6, 4), float)
+    #A[:3, :] = skew_symmetric(p1) @ T1
+    #A[3:, :] = skew_symmetric(p2) @ T2
+    # 实际每个观测只有两个线性无关约束
+    A = np.zeros((4, 4), float)
+    A[:2, :] = (skew_symmetric(p1) @ T1)[:2, :]
+    A[2:, :] = (skew_symmetric(p2) @ T2)[:2, :]
+    u, s, vh = np.linalg.svd(A)
+    p = vh[-1]
+    p /= p[3]
+    p = p[:3]
+    print('p-pp: ', p-pp[i])
+
+# 验证 SVD 分解最小特征值对应的特征向量是 (V.T).T[-1]    
+#U = R21
+#V = R12
+#s = np.diag([3, 2, 1])
+#A = U @ s @ V
+#AT = U @ s @ V.transpose()
+#print('V:\n', R12)
+#print('U:\n', U)
+#u1, s1, v1 = np.linalg.svd(A)
+#print('s1: ', s1)
+#print('(V.T).T:\n', V.transpose())
+#print('v1:\n', v1)
+#print('u1:\n', u1)
+
+#u1, s1, v1 = np.linalg.svd(AT)
+#print('s1: ', s1)
+#print('(V.T).T:\n', V)
+#print('v1:\n', v1)
+#print('u1:\n', u1)
